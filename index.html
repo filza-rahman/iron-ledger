@@ -171,8 +171,8 @@
   .entry-card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); padding: 16px 16px 14px 16px; margin-bottom:14px; animation: fadeInUp .3s ease both; }
   .entry-card .entry-cat{ font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color: var(--accent); font-weight:600; margin-bottom:4px; }
   .entry-card .entry-name{ font-size:16px; font-weight:600; margin-bottom:14px; }
-  .entry-fields{ display:flex; gap:12px; }
-  .field-group{ flex:1; }
+  .entry-fields{ display:flex; gap:12px; flex-wrap:wrap; }
+  .field-group{ flex:1; min-width:84px; }
   .field-group label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color: var(--text-faint); margin-bottom:6px; }
   .field-group .input-row{ display:flex; align-items:center; background: var(--panel-raised); border:1px solid var(--line); border-radius: 9px; padding: 0 12px; }
   .field-group input{ width:100%; background:none; border:none; color: var(--text); font-family:'JetBrains Mono'; font-size:15px; padding: 11px 0; -webkit-appearance:none; }
@@ -302,6 +302,13 @@ const DEFAULT_EXERCISES = {
 };
 const CATEGORIES = ["Upper Body","Lower Body","Full Body","Functional","Cardio"];
 
+/* Cardio work is measured by distance + duration, not weight/sets — except
+   Rowing Machine, which behaves like a resistance/strength movement. */
+function getExerciseType(category, name){
+  if(category === "Cardio" && name !== "Rowing Machine") return "cardio";
+  return "strength";
+}
+
 const ICON_SMALL = {
   "Upper Body": `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="12" height="6" rx="1"></rect><rect x="2" y="8" width="3" height="8" rx="1"></rect><rect x="19" y="8" width="3" height="8" rx="1"></rect></svg>`,
   "Lower Body": `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v7l-2 11h3l2-8 2 8h3l-2-11V3"></path><path d="M9 3h6"></path></svg>`,
@@ -398,7 +405,7 @@ function brandHeader(){
         <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="12" height="6" rx="1"></rect><rect x="2" y="8" width="3" height="8" rx="1"></rect><rect x="19" y="8" width="3" height="8" rx="1"></rect></svg>
         <span class="brand-title">IRON LEDGER</span>
       </div>
-      <div class="brand-sub">Personal Training Log</div>
+      <div class="brand-sub">Personal ing Log</div>
     </div>`;
 }
 
@@ -547,7 +554,10 @@ function renderLogExercises(){
   nextBtn.disabled = state.selectedExercises.length === 0;
   nextBtn.onclick = () => {
     state.entryData = {};
-    state.selectedExercises.forEach(e => { state.entryData[e.category+"__"+e.name] = {weight:"", sets:""}; });
+    state.selectedExercises.forEach(e => {
+      const type = getExerciseType(e.category, e.name);
+      state.entryData[e.category+"__"+e.name] = type === "cardio" ? {distance:"", duration:""} : {weight:"", sets:"", reps:""};
+    });
     go('logDetails');
   };
   return wrap;
@@ -561,7 +571,7 @@ function renderLogDetails(){
       <div class="step-head">
         <div class="step-eyebrow">Step 3 of 3</div>
         <div class="step-title">Log the numbers</div>
-        <div class="step-desc">Leave weight blank for bodyweight moves.</div>
+        <div class="step-desc">Cardio tracks distance &amp; duration. Strength tracks weight, sets &amp; reps — leave weight blank for bodyweight moves.</div>
       </div>
       <div class="date-field">
         <label>Date</label>
@@ -582,11 +592,18 @@ function renderLogDetails(){
   const container = wrap.querySelector('#entryCards');
   state.selectedExercises.forEach((ex, i) => {
     const key = ex.category+"__"+ex.name;
-    const data = state.entryData[key] || {weight:"", sets:""};
-    const card = el(`<div class="entry-card" style="animation-delay:${i*0.04}s">
-      <div class="entry-cat">${ex.category}</div>
-      <div class="entry-name">${ex.name}</div>
-      <div class="entry-fields">
+    const type = getExerciseType(ex.category, ex.name);
+    const data = state.entryData[key] || (type === "cardio" ? {distance:"", duration:""} : {weight:"", sets:"", reps:""});
+
+    const fieldsHtml = type === "cardio" ? `
+        <div class="field-group">
+          <label>Distance</label>
+          <div class="input-row"><input type="number" inputmode="decimal" placeholder="—" min="0" step="0.1" value="${data.distance}"><span class="unit">km</span></div>
+        </div>
+        <div class="field-group">
+          <label>Duration</label>
+          <div class="input-row"><input type="number" inputmode="numeric" placeholder="0" min="0" step="1" value="${data.duration}"><span class="unit">min</span></div>
+        </div>` : `
         <div class="field-group">
           <label>Weight</label>
           <div class="input-row"><input type="number" inputmode="decimal" placeholder="—" min="0" step="0.5" value="${data.weight}"><span class="unit">kg</span></div>
@@ -595,11 +612,27 @@ function renderLogDetails(){
           <label>Sets</label>
           <div class="input-row"><input type="number" inputmode="numeric" placeholder="0" min="0" step="1" value="${data.sets}"></div>
         </div>
-      </div>
+        <div class="field-group">
+          <label>Reps</label>
+          <div class="input-row"><input type="number" inputmode="numeric" placeholder="0" min="0" step="1" value="${data.reps}"></div>
+        </div>`;
+
+    const card = el(`<div class="entry-card" style="animation-delay:${i*0.04}s">
+      <div class="entry-cat">${ex.category}</div>
+      <div class="entry-name">${ex.name}</div>
+      <div class="entry-fields">${fieldsHtml}</div>
     </div>`);
-    const [weightInput, setsInput] = card.querySelectorAll('input');
-    weightInput.oninput = () => { state.entryData[key].weight = weightInput.value; };
-    setsInput.oninput = () => { state.entryData[key].sets = setsInput.value; };
+
+    if(type === "cardio"){
+      const [distInput, durInput] = card.querySelectorAll('input');
+      distInput.oninput = () => { state.entryData[key].distance = distInput.value; };
+      durInput.oninput = () => { state.entryData[key].duration = durInput.value; };
+    } else {
+      const [weightInput, setsInput, repsInput] = card.querySelectorAll('input');
+      weightInput.oninput = () => { state.entryData[key].weight = weightInput.value; };
+      setsInput.oninput = () => { state.entryData[key].sets = setsInput.value; };
+      repsInput.oninput = () => { state.entryData[key].reps = repsInput.value; };
+    }
     container.appendChild(card);
   });
 
@@ -609,7 +642,11 @@ function renderLogDetails(){
     const entries = state.selectedExercises.map(ex => {
       const key = ex.category+"__"+ex.name;
       const d = state.entryData[key];
-      return { category: ex.category, name: ex.name, weight: d.weight ? d.weight : "", sets: d.sets ? d.sets : "" };
+      const type = getExerciseType(ex.category, ex.name);
+      if(type === "cardio"){
+        return { category: ex.category, name: ex.name, type, distance: d.distance ? d.distance : "", duration: d.duration ? d.duration : "" };
+      }
+      return { category: ex.category, name: ex.name, type, weight: d.weight ? d.weight : "", sets: d.sets ? d.sets : "", reps: d.reps ? d.reps : "" };
     });
     sessions.push({ id: Date.now().toString(36), date: state.date, entries, comment: state.comment.trim() });
     saveSessions(sessions);
@@ -676,7 +713,7 @@ function renderViewSessions(){
           s.entries.filter(e => e.category === cat).forEach(e => {
             block.appendChild(el(`<div class="session-ex-row">
               <div class="session-ex-name">${e.name}</div>
-              <div class="session-ex-meta mono">${e.weight ? e.weight+' kg' : 'BW'} × ${e.sets || '—'} sets</div>
+              <div class="session-ex-meta mono">${formatEntryMeta(e)}</div>
             </div>`));
           });
           card.appendChild(block);
@@ -731,7 +768,7 @@ function renderViewSessions(){
           tbody.appendChild(el(`<tr>
             <td class="ex-cat">${e.category}</td>
             <td>${e.name}</td>
-            <td class="ex-num">${e.weight ? e.weight+' kg' : '—'} · ${e.sets || '—'} sets</td>
+            <td class="ex-num">${formatEntryMeta(e)}</td>
           </tr>`));
         });
         if(s.comment){ block.appendChild(el(`<div class="acc-comment">"${s.comment}"</div>`)); }
@@ -764,10 +801,32 @@ function renderViewSessions(){
 }
 
 /* ================= PROGRESS ================= */
+function formatEntryMeta(e){
+  const type = e.type || getExerciseType(e.category, e.name);
+  if(type === "cardio"){
+    const dist = e.distance ? e.distance+' km' : '—';
+    const dur = e.duration ? e.duration+' min' : '—';
+    return `${dist} · ${dur}`;
+  }
+  const w = e.weight ? e.weight+' kg' : 'BW';
+  const sets = e.sets || '—';
+  const reps = e.reps || '—';
+  return `${w} × ${sets} sets × ${reps} reps`;
+}
+
 function getAllExerciseNames(sessions){
   const set = new Set();
   sessions.forEach(s => s.entries.forEach(e => set.add(e.name)));
   return [...set].sort();
+}
+
+function getProgressMetric(sessions, name){
+  for(const s of sessions){
+    for(const e of s.entries){
+      if(e.name === name) return e.type || getExerciseType(e.category, e.name);
+    }
+  }
+  return "strength";
 }
 
 function renderProgress(){
@@ -778,7 +837,7 @@ function renderProgress(){
     <div class="screen">
       <div class="step-head">
         <div class="step-title">Progress</div>
-        <div class="step-desc">Weight trend over time for a chosen exercise.</div>
+        <div class="step-desc">Weight trend for strength moves, distance trend for cardio.</div>
       </div>
       <div id="progBody"></div>
     </div>
@@ -807,30 +866,33 @@ function renderProgress(){
   select.onchange = () => { state.progressExercise = select.value; render(); };
   body.appendChild(selectWrap);
 
-  // gather data points for selected exercise
+  // gather data points for selected exercise (weight for strength, distance for cardio)
+  const metricType = getProgressMetric(sessions, state.progressExercise);
+  const unit = metricType === "cardio" ? "km" : "kg";
+  const metricLabel = metricType === "cardio" ? "Distance" : "Weight";
   const points = [];
   sessions.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(s => {
     s.entries.forEach(e => {
-      if(e.name === state.progressExercise && e.weight){
-        points.push({ date: s.date, weight: parseFloat(e.weight) });
-      }
+      if(e.name !== state.progressExercise) return;
+      const val = metricType === "cardio" ? e.distance : e.weight;
+      if(val){ points.push({ date: s.date, value: parseFloat(val) }); }
     });
   });
 
-  const latest = points.length ? points[points.length-1].weight : null;
-  const best = points.length ? Math.max(...points.map(p=>p.weight)) : null;
+  const latest = points.length ? points[points.length-1].value : null;
+  const best = points.length ? Math.max(...points.map(p=>p.value)) : null;
 
   const statsRow = el(`<div class="progress-stats">
     <div class="p-stat"><div class="p-stat-num mono">${points.length}</div><div class="p-stat-label">Logged</div></div>
-    <div class="p-stat"><div class="p-stat-num mono">${latest !== null ? latest+' kg' : '—'}</div><div class="p-stat-label">Latest</div></div>
-    <div class="p-stat"><div class="p-stat-num mono">${best !== null ? best+' kg' : '—'}</div><div class="p-stat-label">Best</div></div>
+    <div class="p-stat"><div class="p-stat-num mono">${latest !== null ? latest+' '+unit : '—'}</div><div class="p-stat-label">Latest</div></div>
+    <div class="p-stat"><div class="p-stat-num mono">${best !== null ? best+' '+unit : '—'}</div><div class="p-stat-label">Best (${metricLabel})</div></div>
   </div>`);
   body.appendChild(statsRow);
 
   const chartCard = el(`<div class="chart-card"></div>`);
   if(points.length < 2){
     chartCard.appendChild(el(`<div class="empty-state" style="padding:36px 10px;">
-      <p>${points.length === 0 ? "No weight entries yet for this exercise." : "Log one more session with this exercise to see a trend line."}</p>
+      <p>${points.length === 0 ? `No ${metricLabel.toLowerCase()} entries yet for this exercise.` : "Log one more session with this exercise to see a trend line."}</p>
     </div>`));
   } else {
     chartCard.appendChild(buildLineChart(points));
@@ -842,26 +904,26 @@ function renderProgress(){
 
 function buildLineChart(points){
   const W = 300, H = 150, padL = 34, padR = 12, padT = 16, padB = 22;
-  const weights = points.map(p=>p.weight);
-  let min = Math.min(...weights), max = Math.max(...weights);
+  const values = points.map(p=>p.value);
+  let min = Math.min(...values), max = Math.max(...values);
   if(min === max){ min -= 5; max += 5; }
   const rangePad = (max-min) * 0.15;
   min -= rangePad; max += rangePad;
   if(min < 0) min = 0;
 
   const xFor = i => padL + (i/(points.length-1)) * (W - padL - padR);
-  const yFor = w => padT + (1 - (w-min)/(max-min)) * (H - padT - padB);
+  const yFor = v => padT + (1 - (v-min)/(max-min)) * (H - padT - padB);
 
   let d = "";
-  points.forEach((p,i) => { d += (i===0?"M":"L") + xFor(i).toFixed(1) + "," + yFor(p.weight).toFixed(1) + " "; });
+  points.forEach((p,i) => { d += (i===0?"M":"L") + xFor(i).toFixed(1) + "," + yFor(p.value).toFixed(1) + " "; });
 
   let dots = "";
   let labels = "";
   points.forEach((p,i) => {
-    const x = xFor(i), y = yFor(p.weight);
+    const x = xFor(i), y = yFor(p.value);
     dots += `<circle class="chart-dot" cx="${x}" cy="${y}" r="3.2"></circle>`;
     if(i===0 || i===points.length-1 || points.length <= 6){
-      labels += `<text class="chart-value" x="${x}" y="${y-9}" text-anchor="middle">${p.weight}</text>`;
+      labels += `<text class="chart-value" x="${x}" y="${y-9}" text-anchor="middle">${p.value}</text>`;
     }
     labels += `<text class="chart-label" x="${x}" y="${H-6}" text-anchor="middle">${formatDateShort(p.date)}</text>`;
   });
