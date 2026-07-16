@@ -164,13 +164,18 @@
   .add-custom-row button:active{ transform: scale(0.92); }
 
   /* ---------- Detail entry ---------- */
-  .date-field{ display:flex; align-items:center; justify-content:space-between; background: var(--panel); border:1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom:22px; }
+  .date-field{ display:flex; align-items:center; justify-content:space-between; background: var(--panel); border:1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom:10px; }
   .date-field label{ font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color: var(--text-faint); }
   .date-field input[type="date"]{ background:none; border:none; color: var(--text); font-family:'JetBrains Mono'; font-size:15px; text-align:right; -webkit-appearance:none; }
+  .date-hint{ font-size:12px; color: var(--text-faint); margin-bottom:22px; line-height:1.5; }
 
-  .entry-card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); padding: 16px 16px 14px 16px; margin-bottom:14px; animation: fadeInUp .3s ease both; }
+  .entry-card{ position:relative; background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); padding: 16px 16px 14px 16px; margin-bottom:14px; animation: fadeInUp .3s ease both; }
+  .entry-card-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
   .entry-card .entry-cat{ font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color: var(--accent); font-weight:600; margin-bottom:4px; }
   .entry-card .entry-name{ font-size:16px; font-weight:600; margin-bottom:14px; }
+  .entry-remove{ background:none; border:none; cursor:pointer; padding:4px; flex-shrink:0; margin-top:-2px; }
+  .entry-remove svg{ width:16px; height:16px; stroke: var(--text-faint); transition: stroke .15s ease; }
+  .entry-remove:active svg{ stroke: var(--bad); }
   .entry-fields{ display:flex; gap:12px; flex-wrap:wrap; }
   .field-group{ flex:1; min-width:84px; }
   .field-group label{ display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color: var(--text-faint); margin-bottom:6px; }
@@ -215,7 +220,7 @@
 
   .session-card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); padding:16px; margin-bottom:10px; position:relative; transition: opacity .22s ease, transform .22s ease, max-height .22s ease; overflow:hidden; }
   .session-card.removing{ opacity:0; transform: scale(0.96); }
-  .session-card .tags{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; padding-right: 30px; }
+  .session-card .tags{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; padding-right: 62px; }
   .tag{ font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color: var(--accent); border:1px solid var(--accent-dim); border-radius:20px; padding:4px 10px; font-weight:600; }
   .session-cat-block{ margin-bottom:14px; }
   .session-cat-block:last-of-type{ margin-bottom:0; }
@@ -230,6 +235,10 @@
   .delete-btn:active{ transform: scale(0.85); }
   .delete-btn svg{ width:16px; height:16px; stroke: var(--text-faint); transition: stroke .15s ease; }
   .delete-btn:active svg{ stroke: var(--bad); }
+  .edit-btn{ position:absolute; top:14px; right:46px; background:none; border:none; cursor:pointer; padding:6px; transition: transform .1s ease; }
+  .edit-btn:active{ transform: scale(0.85); }
+  .edit-btn svg{ width:16px; height:16px; stroke: var(--text-faint); transition: stroke .15s ease; }
+  .edit-btn:active svg{ stroke: var(--accent); }
 
   /* ---------- Table (expandable, grouped by date) ---------- */
   .acc-list{ display:flex; flex-direction:column; gap:8px; }
@@ -245,7 +254,7 @@
   .acc-detail-inner{ padding: 14px 16px 16px 16px; }
   .acc-session-block{ margin-bottom:14px; position:relative; }
   .acc-session-block:last-child{ margin-bottom:0; }
-  .acc-tags{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; padding-right:30px; }
+  .acc-tags{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; padding-right:56px; }
   .acc-ex-table{ width:100%; border-collapse:collapse; font-size:13px; }
   .acc-ex-table td{ padding:7px 0; border-top:1px solid var(--line); }
   .acc-ex-table tr:first-child td{ border-top:none; }
@@ -253,6 +262,8 @@
   .acc-ex-table td.ex-num{ text-align:right; font-family:'JetBrains Mono'; color: var(--text-dim); white-space:nowrap; }
   .acc-delete{ position:absolute; top:0; right:0; background:none; border:none; cursor:pointer; padding:4px; }
   .acc-delete svg{ width:15px; height:15px; stroke: var(--text-faint); }
+  .acc-edit{ position:absolute; top:0; right:26px; background:none; border:none; cursor:pointer; padding:4px; }
+  .acc-edit svg{ width:15px; height:15px; stroke: var(--text-faint); }
   .acc-comment{ margin-top:10px; padding:9px 11px; background: var(--panel-raised); border-left:2px solid var(--accent-dim); border-radius:0 8px 8px 0; font-size:12.5px; color: var(--text-dim); font-style:italic; line-height:1.5; }
 
   /* ---------- Progress screen ---------- */
@@ -369,7 +380,8 @@ let state = {
   date: new Date().toISOString().slice(0,10),
   sessionsViewMode: "card",
   openDates: new Set(),
-  progressExercise: null
+  progressExercise: null,
+  editingSessionId: null
 };
 
 function todayLabel(){ return new Date().toLocaleDateString('en-GB', { weekday:'short', day:'2-digit', month:'short' }); }
@@ -405,7 +417,7 @@ function brandHeader(){
         <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="9" width="12" height="6" rx="1"></rect><rect x="2" y="8" width="3" height="8" rx="1"></rect><rect x="19" y="8" width="3" height="8" rx="1"></rect></svg>
         <span class="brand-title">IRON LEDGER</span>
       </div>
-      <div class="brand-sub">Personal ing Log</div>
+      <div class="brand-sub">Personal Training Log</div>
     </div>`;
 }
 
@@ -446,6 +458,7 @@ function renderHome(){
   wrap.querySelector('.plate-btn.primary').onclick = () => {
     state.selectedCategories = []; state.selectedExercises = []; state.entryData = {}; state.comment = "";
     state.date = new Date().toISOString().slice(0,10);
+    state.editingSessionId = null;
     go('logCategories');
   };
   wrap.querySelector('#viewBtn').onclick = () => go('viewSessions');
@@ -503,7 +516,7 @@ function renderLogExercises(){
       <button class="btn-primary spacer-btn" id="nextBtn" disabled>Continue</button>
     </div>
   </div>`);
-  wrap.querySelector('#backBtn').onclick = () => go('logCategories');
+  wrap.querySelector('#backBtn').onclick = () => go(state.editingSessionId ? 'viewSessions' : 'logCategories');
   const groups = wrap.querySelector('#groups');
 
   state.selectedCategories.forEach((cat, gi) => {
@@ -553,11 +566,16 @@ function renderLogExercises(){
   const nextBtn = wrap.querySelector('#nextBtn');
   nextBtn.disabled = state.selectedExercises.length === 0;
   nextBtn.onclick = () => {
-    state.entryData = {};
+    // Preserve any values already entered (e.g. when editing or going back and forth)
+    // and only create fresh blank fields for newly-added exercises.
+    const newEntryData = {};
     state.selectedExercises.forEach(e => {
+      const key = e.category+"__"+e.name;
+      if(state.entryData[key]){ newEntryData[key] = state.entryData[key]; return; }
       const type = getExerciseType(e.category, e.name);
-      state.entryData[e.category+"__"+e.name] = type === "cardio" ? {distance:"", duration:""} : {weight:"", sets:"", reps:""};
+      newEntryData[key] = type === "cardio" ? {distance:"", duration:""} : {weight:"", sets:"", reps:""};
     });
+    state.entryData = newEntryData;
     go('logDetails');
   };
   return wrap;
@@ -565,24 +583,26 @@ function renderLogExercises(){
 
 /* ================= STEP 3: DETAILS ================= */
 function renderLogDetails(){
+  const isEditing = !!state.editingSessionId;
   const wrap = el(`<div>
     <div class="topbar"><button class="back-btn" id="backBtn">&larr; Back</button></div>
     <div class="screen">
       <div class="step-head">
-        <div class="step-eyebrow">Step 3 of 3</div>
-        <div class="step-title">Log the numbers</div>
+        <div class="step-eyebrow">${isEditing ? 'Editing session' : 'Step 3 of 3'}</div>
+        <div class="step-title">${isEditing ? 'Edit the session' : 'Log the numbers'}</div>
         <div class="step-desc">Cardio tracks distance &amp; duration. Strength tracks weight, sets &amp; reps — leave weight blank for bodyweight moves.</div>
       </div>
       <div class="date-field">
         <label>Date</label>
         <input type="date" id="dateInput" value="${state.date}">
       </div>
+      <div class="date-hint">Logging exercises you forgot from an earlier day? Just set the date above — it'll be added to that day's session instead of creating a new one.</div>
       <div id="entryCards"></div>
       <div class="comment-block">
         <label>Session Notes (optional)</label>
         <textarea id="commentInput" placeholder="How did the session feel? Energy, form, anything worth remembering...">${state.comment}</textarea>
       </div>
-      <button class="btn-primary spacer-btn" id="saveBtn">Save Session</button>
+      <button class="btn-primary spacer-btn" id="saveBtn">${isEditing ? 'Update Session' : 'Save Session'}</button>
     </div>
   </div>`);
   wrap.querySelector('#backBtn').onclick = () => go('logExercises');
@@ -590,6 +610,13 @@ function renderLogDetails(){
   wrap.querySelector('#commentInput').oninput = (e) => { state.comment = e.target.value; };
 
   const container = wrap.querySelector('#entryCards');
+
+  if(state.selectedExercises.length === 0){
+    container.appendChild(el(`<div class="empty-state" style="padding:20px 6px;">
+      <p>No exercises to log. Go back and add some.</p>
+    </div>`));
+  }
+
   state.selectedExercises.forEach((ex, i) => {
     const key = ex.category+"__"+ex.name;
     const type = getExerciseType(ex.category, ex.name);
@@ -602,7 +629,7 @@ function renderLogDetails(){
         </div>
         <div class="field-group">
           <label>Duration</label>
-          <div class="input-row"><input type="number" inputmode="numeric" placeholder="0" min="0" step="1" value="${data.duration}"><span class="unit">min</span></div>
+          <div class="input-row"><input type="number" inputmode="decimal" placeholder="0" min="0" step="0.1" value="${data.duration}"><span class="unit">min</span></div>
         </div>` : `
         <div class="field-group">
           <label>Weight</label>
@@ -618,8 +645,13 @@ function renderLogDetails(){
         </div>`;
 
     const card = el(`<div class="entry-card" style="animation-delay:${i*0.04}s">
-      <div class="entry-cat">${ex.category}</div>
-      <div class="entry-name">${ex.name}</div>
+      <div class="entry-card-head">
+        <div>
+          <div class="entry-cat">${ex.category}</div>
+          <div class="entry-name">${ex.name}</div>
+        </div>
+        <button class="entry-remove" title="Remove this exercise"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+      </div>
       <div class="entry-fields">${fieldsHtml}</div>
     </div>`);
 
@@ -633,12 +665,20 @@ function renderLogDetails(){
       setsInput.oninput = () => { state.entryData[key].sets = setsInput.value; };
       repsInput.oninput = () => { state.entryData[key].reps = repsInput.value; };
     }
+    card.querySelector('.entry-remove').onclick = () => {
+      const idx = state.selectedExercises.findIndex(x => x.category===ex.category && x.name===ex.name);
+      if(idx !== -1) state.selectedExercises.splice(idx,1);
+      delete state.entryData[key];
+      render();
+    };
     container.appendChild(card);
   });
 
-  wrap.querySelector('#saveBtn').onclick = (e) => {
+  const saveBtn = wrap.querySelector('#saveBtn');
+  saveBtn.disabled = state.selectedExercises.length === 0;
+  saveBtn.onclick = (e) => {
     const btn = e.currentTarget;
-    const sessions = loadSessions();
+    let sessions = loadSessions();
     const entries = state.selectedExercises.map(ex => {
       const key = ex.category+"__"+ex.name;
       const d = state.entryData[key];
@@ -648,13 +688,53 @@ function renderLogDetails(){
       }
       return { category: ex.category, name: ex.name, type, weight: d.weight ? d.weight : "", sets: d.sets ? d.sets : "", reps: d.reps ? d.reps : "" };
     });
-    sessions.push({ id: Date.now().toString(36), date: state.date, entries, comment: state.comment.trim() });
+
+    if(state.editingSessionId){
+      // Update the existing session in place.
+      sessions = sessions.map(s => s.id === state.editingSessionId
+        ? { ...s, date: state.date, entries, comment: state.comment.trim() }
+        : s);
+    } else {
+      // New log — merge into an existing session on the same date, if one exists,
+      // instead of creating a duplicate session for the same day.
+      const existingIdx = sessions.findIndex(s => s.date === state.date);
+      if(existingIdx !== -1){
+        const existing = sessions[existingIdx];
+        existing.entries = existing.entries.concat(entries);
+        if(state.comment.trim()){
+          existing.comment = existing.comment ? existing.comment + " / " + state.comment.trim() : state.comment.trim();
+        }
+      } else {
+        sessions.push({ id: Date.now().toString(36), date: state.date, entries, comment: state.comment.trim() });
+      }
+    }
+
     saveSessions(sessions);
+    const wasEditing = !!state.editingSessionId;
+    state.editingSessionId = null;
     btn.textContent = "Saved ✓";
     btn.style.opacity = "0.7";
-    setTimeout(() => { showToast("Session saved"); go('home'); }, 350);
+    setTimeout(() => { showToast(wasEditing ? "Session updated" : "Session saved"); go('home'); }, 350);
   };
   return wrap;
+}
+
+/* ================= EDIT EXISTING SESSION ================= */
+function startEditSession(s){
+  state.selectedCategories = [...new Set(s.entries.map(e => e.category))];
+  state.selectedExercises = s.entries.map(e => ({category: e.category, name: e.name}));
+  state.entryData = {};
+  s.entries.forEach(e => {
+    const key = e.category+"__"+e.name;
+    const type = e.type || getExerciseType(e.category, e.name);
+    state.entryData[key] = type === "cardio"
+      ? { distance: e.distance || "", duration: e.duration || "" }
+      : { weight: e.weight || "", sets: e.sets || "", reps: e.reps || "" };
+  });
+  state.date = s.date;
+  state.comment = s.comment || "";
+  state.editingSessionId = s.id;
+  go('logDetails');
 }
 
 /* ================= VIEW SESSIONS ================= */
@@ -705,7 +785,8 @@ function renderViewSessions(){
       daySessions.forEach(s => {
         const cats = [...new Set(s.entries.map(e=>e.category))];
         const card = el(`<div class="session-card">
-          <button class="delete-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"></path></svg></button>
+          <button class="edit-btn" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+          <button class="delete-btn" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"></path></svg></button>
           <div class="tags">${cats.map(c=>`<span class="tag">${c}</span>`).join('')}</div>
         </div>`);
         cats.forEach(cat => {
@@ -719,6 +800,7 @@ function renderViewSessions(){
           card.appendChild(block);
         });
         if(s.comment){ card.appendChild(el(`<div class="session-comment">"${s.comment}"</div>`)); }
+        card.querySelector('.edit-btn').onclick = () => startEditSession(s);
         card.querySelector('.delete-btn').onclick = () => deleteSessionById(s.id, card);
         dayGroup.appendChild(card);
       });
@@ -759,7 +841,8 @@ function renderViewSessions(){
       daySessions.forEach(s => {
         const cats = [...new Set(s.entries.map(e=>e.category))];
         const block = el(`<div class="acc-session-block">
-          <button class="acc-delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"></path></svg></button>
+          <button class="acc-edit" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+          <button class="acc-delete" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"></path></svg></button>
           <div class="acc-tags">${cats.map(c=>`<span class="tag">${c}</span>`).join('')}</div>
           <table class="acc-ex-table"><tbody></tbody></table>
         </div>`);
@@ -772,6 +855,10 @@ function renderViewSessions(){
           </tr>`));
         });
         if(s.comment){ block.appendChild(el(`<div class="acc-comment">"${s.comment}"</div>`)); }
+        block.querySelector('.acc-edit').onclick = (ev) => {
+          ev.stopPropagation();
+          startEditSession(s);
+        };
         block.querySelector('.acc-delete').onclick = (ev) => {
           ev.stopPropagation();
           deleteSessionById(s.id, block, () => render());
