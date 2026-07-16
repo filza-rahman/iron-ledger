@@ -97,6 +97,7 @@
   .plate-btn:nth-of-type(1){ animation-delay: .02s; }
   .plate-btn:nth-of-type(2){ animation-delay: .08s; }
   .plate-btn:nth-of-type(3){ animation-delay: .14s; }
+  .plate-btn:nth-of-type(4){ animation-delay: .20s; }
   .plate-btn:active{ transform: scale(0.98); box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 4px 10px -6px rgba(0,0,0,0.5); }
   .plate-btn .ring{ position:absolute; inset:7px; border-radius: calc(var(--radius) - 7px); border: 1px solid rgba(255,255,255,0.05); pointer-events:none; }
   .plate-btn.primary{ border-color: var(--accent-dim); animation: fadeInUp .4s ease both, ringPulse 2.6s ease-out .6s 1; }
@@ -193,6 +194,15 @@
   .comment-block textarea:focus{ outline:none; border-color: var(--accent); }
   .comment-block textarea::placeholder{ color: var(--text-faint); }
 
+  /* ---------- Weight logging ---------- */
+  .weight-card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); padding: 24px 16px; text-align: center; animation: fadeInUp .3s ease both; }
+  .weight-label{ font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color: var(--text-faint); margin-bottom:12px; }
+  .weight-input-group{ display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:20px; }
+  .weight-input-group input{ width:120px; background: var(--panel-raised); border:1px solid var(--line); border-radius: 9px; padding: 12px 14px; color: var(--text); font-family:'JetBrains Mono'; font-size:24px; text-align:center; -webkit-appearance:none; }
+  .weight-input-group input:focus{ outline:none; border-color: var(--accent); }
+  .weight-input-group .unit{ font-size:16px; color: var(--text-dim); font-family:'JetBrains Mono'; font-weight:600; }
+  .weight-note{ font-size:12px; color: var(--text-faint); margin-top:12px; line-height:1.5; }
+
   /* ---------- Buttons ---------- */
   .btn-primary{
     width:100%; background: var(--accent); color:#17181B; border:none; border-radius: var(--radius-sm); padding:16px;
@@ -225,7 +235,7 @@
   .session-cat-block{ margin-bottom:14px; }
   .session-cat-block:last-of-type{ margin-bottom:0; }
   .session-cat-label{ display:flex; align-items:center; gap:6px; font-size:10.5px; text-transform:uppercase; letter-spacing:0.1em; color: var(--text-faint); font-weight:600; margin-bottom:4px; }
-  .session-cat-label::before{ content:""; width:5px; height:5px; border-radius:50%; background: var(--accent); flex-shrink:0; }
+  .session-cat-label::before{ content:""; width:5px; height:5px; border-radius:5px; background: var(--accent-dim); }
   .session-ex-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
   .session-cat-block .session-ex-row:first-of-type{ border-top:none; }
   .session-ex-name{ font-size:14px; }
@@ -288,6 +298,12 @@
   .chart-svg text.chart-label{ font-family:'JetBrains Mono'; font-size:9px; fill: var(--text-faint); }
   .chart-svg text.chart-value{ font-family:'JetBrains Mono'; font-size:10px; fill: var(--text-dim); font-weight:700; }
 
+  /* ---------- Progress tabs ---------- */
+  .progress-tabs{ display:flex; gap:10px; margin-bottom:22px; }
+  .progress-tab{ flex:1; background: var(--panel); border:1px solid var(--line); border-radius: var(--radius-sm); padding:12px; text-align:center; cursor:pointer; transition: all .15s ease; }
+  .progress-tab.active{ background: var(--panel-raised); border-color: var(--accent); color: var(--accent); font-weight:600; }
+  .progress-tab-label{ font-size:12px; text-transform:uppercase; letter-spacing:0.08em; }
+
   .toast{
     position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(12px);
     background: var(--panel-raised); border:1px solid var(--accent-dim); color: var(--text); padding:12px 20px;
@@ -347,6 +363,7 @@ const CATEGORY_TAGLINE = {
 /* ================= STORAGE ================= */
 const LS_EX = "ironledger_exercises";
 const LS_SESSIONS = "ironledger_sessions";
+const LS_WEIGHTS = "ironledger_weights";
 
 function loadExercises(){
   const saved = JSON.parse(localStorage.getItem(LS_EX) || "{}");
@@ -368,6 +385,8 @@ function saveCustomExercise(category, name){
 }
 function loadSessions(){ return JSON.parse(localStorage.getItem(LS_SESSIONS) || "[]"); }
 function saveSessions(sessions){ localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions)); }
+function loadWeights(){ return JSON.parse(localStorage.getItem(LS_WEIGHTS) || "[]"); }
+function saveWeights(weights){ localStorage.setItem(LS_WEIGHTS, JSON.stringify(weights)); }
 
 /* ================= STATE ================= */
 let EXERCISES = loadExercises();
@@ -378,9 +397,11 @@ let state = {
   entryData: {},
   comment: "",
   date: new Date().toISOString().slice(0,10),
+  weight: "",
   sessionsViewMode: "card",
   openDates: new Set(),
   progressExercise: null,
+  progressTab: "exercises",
   editingSessionId: null
 };
 
@@ -406,6 +427,7 @@ function render(){
   else if(state.view === "logCategories") app.appendChild(renderLogCategories());
   else if(state.view === "logExercises") app.appendChild(renderLogExercises());
   else if(state.view === "logDetails") app.appendChild(renderLogDetails());
+  else if(state.view === "logWeight") app.appendChild(renderLogWeight());
   else if(state.view === "viewSessions") app.appendChild(renderViewSessions());
   else if(state.view === "progress") app.appendChild(renderProgress());
 }
@@ -424,6 +446,7 @@ function brandHeader(){
 /* ================= HOME ================= */
 function renderHome(){
   const sessions = loadSessions();
+  const weights = loadWeights();
   const totalSessions = sessions.length;
   const thisMonth = sessions.filter(s => s.date.slice(0,7) === new Date().toISOString().slice(0,7)).length;
   const wrap = el(`<div>
@@ -449,20 +472,21 @@ function renderHome(){
           <div class="plate-sub">Track trends over time</div>
         </button>
         <div class="home-stats">
-          <div class="stat"><div class="stat-num mono">${totalSessions}</div><div class="stat-label">All Time</div></div>
+          <div class="stat"><div class="stat-num mono">${totalSessions}</div><div class="stat-label">Sessions</div></div>
           <div class="stat"><div class="stat-num mono">${thisMonth}</div><div class="stat-label">This Month</div></div>
+          <div class="stat"><div class="stat-num mono">${weights.length}</div><div class="stat-label">Weights</div></div>
         </div>
       </div>
     </div>
   </div>`);
   wrap.querySelector('.plate-btn.primary').onclick = () => {
-    state.selectedCategories = []; state.selectedExercises = []; state.entryData = {}; state.comment = "";
+    state.selectedCategories = []; state.selectedExercises = []; state.entryData = {}; state.comment = ""; state.weight = "";
     state.date = new Date().toISOString().slice(0,10);
     state.editingSessionId = null;
     go('logCategories');
   };
   wrap.querySelector('#viewBtn').onclick = () => go('viewSessions');
-  wrap.querySelector('#progBtn').onclick = () => { state.progressExercise = null; go('progress'); };
+  wrap.querySelector('#progBtn').onclick = () => { state.progressExercise = null; state.progressTab = "exercises"; go('progress'); };
   return wrap;
 }
 
@@ -472,7 +496,7 @@ function renderLogCategories(){
     <div class="topbar"><button class="back-btn" id="backBtn">&larr; Back</button></div>
     <div class="screen">
       <div class="step-head">
-        <div class="step-eyebrow">Step 1 of 3</div>
+        <div class="step-eyebrow">Step 1 of 4</div>
         <div class="step-title">What did you train today?</div>
         <div class="step-desc">Select one or more workout types.</div>
       </div>
@@ -508,7 +532,7 @@ function renderLogExercises(){
     <div class="topbar"><button class="back-btn" id="backBtn">&larr; Back</button></div>
     <div class="screen">
       <div class="step-head">
-        <div class="step-eyebrow">Step 2 of 3</div>
+        <div class="step-eyebrow">Step 2 of 4</div>
         <div class="step-title">Pick the exercises</div>
         <div class="step-desc">Choose from the list, or add a new one.</div>
       </div>
@@ -516,7 +540,7 @@ function renderLogExercises(){
       <button class="btn-primary spacer-btn" id="nextBtn" disabled>Continue</button>
     </div>
   </div>`);
-  wrap.querySelector('#backBtn').onclick = () => go(state.editingSessionId ? 'viewSessions' : 'logCategories');
+  wrap.querySelector('#backBtn').onclick = () => go('logCategories');
   const groups = wrap.querySelector('#groups');
 
   state.selectedCategories.forEach((cat, gi) => {
@@ -566,8 +590,6 @@ function renderLogExercises(){
   const nextBtn = wrap.querySelector('#nextBtn');
   nextBtn.disabled = state.selectedExercises.length === 0;
   nextBtn.onclick = () => {
-    // Preserve any values already entered (e.g. when editing or going back and forth)
-    // and only create fresh blank fields for newly-added exercises.
     const newEntryData = {};
     state.selectedExercises.forEach(e => {
       const key = e.category+"__"+e.name;
@@ -588,7 +610,7 @@ function renderLogDetails(){
     <div class="topbar"><button class="back-btn" id="backBtn">&larr; Back</button></div>
     <div class="screen">
       <div class="step-head">
-        <div class="step-eyebrow">${isEditing ? 'Editing session' : 'Step 3 of 3'}</div>
+        <div class="step-eyebrow">${isEditing ? 'Editing session' : 'Step 3 of 4'}</div>
         <div class="step-title">${isEditing ? 'Edit the session' : 'Log the numbers'}</div>
         <div class="step-desc">Cardio tracks distance &amp; duration. Strength tracks weight, sets &amp; reps — leave weight blank for bodyweight moves.</div>
       </div>
@@ -602,7 +624,7 @@ function renderLogDetails(){
         <label>Session Notes (optional)</label>
         <textarea id="commentInput" placeholder="How did the session feel? Energy, form, anything worth remembering...">${state.comment}</textarea>
       </div>
-      <button class="btn-primary spacer-btn" id="saveBtn">${isEditing ? 'Update Session' : 'Save Session'}</button>
+      <button class="btn-primary spacer-btn" id="nextBtn">${isEditing ? 'Update Session' : 'Continue'}</button>
     </div>
   </div>`);
   wrap.querySelector('#backBtn').onclick = () => go('logExercises');
@@ -674,8 +696,64 @@ function renderLogDetails(){
     container.appendChild(card);
   });
 
+  const nextBtn = wrap.querySelector('#nextBtn');
+  nextBtn.disabled = state.selectedExercises.length === 0;
+  nextBtn.onclick = (e) => {
+    if(state.editingSessionId){
+      // Save directly without weight step when editing
+      const btn = e.currentTarget;
+      let sessions = loadSessions();
+      const entries = state.selectedExercises.map(ex => {
+        const key = ex.category+"__"+ex.name;
+        const d = state.entryData[key];
+        const type = getExerciseType(ex.category, ex.name);
+        if(type === "cardio"){
+          return { category: ex.category, name: ex.name, type, distance: d.distance ? d.distance : "", duration: d.duration ? d.duration : "" };
+        }
+        return { category: ex.category, name: ex.name, type, weight: d.weight ? d.weight : "", sets: d.sets ? d.sets : "", reps: d.reps ? d.reps : "" };
+      });
+      sessions = sessions.map(s => s.id === state.editingSessionId
+        ? { ...s, date: state.date, entries, comment: state.comment.trim() }
+        : s);
+      saveSessions(sessions);
+      state.editingSessionId = null;
+      btn.textContent = "Updated ✓";
+      btn.style.opacity = "0.7";
+      setTimeout(() => { showToast("Session updated"); go('home'); }, 350);
+    } else {
+      go('logWeight');
+    }
+  };
+  return wrap;
+}
+
+/* ================= STEP 4: LOG WEIGHT ================= */
+function renderLogWeight(){
+  const wrap = el(`<div>
+    <div class="topbar"><button class="back-btn" id="backBtn">&larr; Back</button></div>
+    <div class="screen">
+      <div class="step-head">
+        <div class="step-eyebrow">Step 4 of 4</div>
+        <div class="step-title">Log your weight</div>
+        <div class="step-desc">Optional: record your body weight today.</div>
+      </div>
+      <div class="weight-card">
+        <div class="weight-label">Body Weight</div>
+        <div class="weight-input-group">
+          <input type="number" id="weightInput" inputmode="decimal" placeholder="0" min="0" step="0.1" value="${state.weight}">
+          <span class="unit">kg</span>
+        </div>
+        <div class="weight-note">Leave blank to skip weight logging for today.</div>
+      </div>
+      <button class="btn-primary spacer-btn" id="saveBtn">Save Session</button>
+    </div>
+  </div>`);
+  
+  wrap.querySelector('#backBtn').onclick = () => go('logDetails');
+  const weightInput = wrap.querySelector('#weightInput');
+  weightInput.oninput = (e) => { state.weight = e.target.value; };
+  
   const saveBtn = wrap.querySelector('#saveBtn');
-  saveBtn.disabled = state.selectedExercises.length === 0;
   saveBtn.onclick = (e) => {
     const btn = e.currentTarget;
     let sessions = loadSessions();
@@ -689,33 +767,36 @@ function renderLogDetails(){
       return { category: ex.category, name: ex.name, type, weight: d.weight ? d.weight : "", sets: d.sets ? d.sets : "", reps: d.reps ? d.reps : "" };
     });
 
-    if(state.editingSessionId){
-      // Update the existing session in place.
-      sessions = sessions.map(s => s.id === state.editingSessionId
-        ? { ...s, date: state.date, entries, comment: state.comment.trim() }
-        : s);
-    } else {
-      // New log — merge into an existing session on the same date, if one exists,
-      // instead of creating a duplicate session for the same day.
-      const existingIdx = sessions.findIndex(s => s.date === state.date);
-      if(existingIdx !== -1){
-        const existing = sessions[existingIdx];
-        existing.entries = existing.entries.concat(entries);
-        if(state.comment.trim()){
-          existing.comment = existing.comment ? existing.comment + " / " + state.comment.trim() : state.comment.trim();
-        }
-      } else {
-        sessions.push({ id: Date.now().toString(36), date: state.date, entries, comment: state.comment.trim() });
+    const existingIdx = sessions.findIndex(s => s.date === state.date);
+    if(existingIdx !== -1){
+      const existing = sessions[existingIdx];
+      existing.entries = existing.entries.concat(entries);
+      if(state.comment.trim()){
+        existing.comment = existing.comment ? existing.comment + " / " + state.comment.trim() : state.comment.trim();
       }
+    } else {
+      sessions.push({ id: Date.now().toString(36), date: state.date, entries, comment: state.comment.trim() });
+    }
+    saveSessions(sessions);
+
+    // Save or update weight if provided
+    if(state.weight){
+      const weights = loadWeights();
+      const existingIdx = weights.findIndex(w => w.date === state.date);
+      if(existingIdx !== -1){
+        weights[existingIdx].weight = parseFloat(state.weight);
+      } else {
+        weights.push({ date: state.date, weight: parseFloat(state.weight) });
+      }
+      saveWeights(weights);
     }
 
-    saveSessions(sessions);
-    const wasEditing = !!state.editingSessionId;
     state.editingSessionId = null;
     btn.textContent = "Saved ✓";
     btn.style.opacity = "0.7";
-    setTimeout(() => { showToast(wasEditing ? "Session updated" : "Session saved"); go('home'); }, 350);
+    setTimeout(() => { showToast("Session saved"); go('home'); }, 350);
   };
+  
   return wrap;
 }
 
@@ -734,12 +815,16 @@ function startEditSession(s){
   state.date = s.date;
   state.comment = s.comment || "";
   state.editingSessionId = s.id;
+  const weights = loadWeights();
+  const existingWeight = weights.find(w => w.date === s.date);
+  state.weight = existingWeight ? existingWeight.weight.toString() : "";
   go('logDetails');
 }
 
 /* ================= VIEW SESSIONS ================= */
 function renderViewSessions(){
   const sessions = loadSessions().slice().sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  const weights = loadWeights();
   const wrap = el(`<div>
     <div class="topbar"><button class="back-btn" id="backBtn">&larr; Back</button></div>
     <div class="screen">
@@ -784,10 +869,11 @@ function renderViewSessions(){
       </div>`);
       daySessions.forEach(s => {
         const cats = [...new Set(s.entries.map(e=>e.category))];
+        const dayWeight = weights.find(w => w.date === date);
         const card = el(`<div class="session-card">
           <button class="edit-btn" title="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
           <button class="delete-btn" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"></path><path d="M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"></path></svg></button>
-          <div class="tags">${cats.map(c=>`<span class="tag">${c}</span>`).join('')}</div>
+          <div class="tags">${cats.map(c=>`<span class="tag">${c}</span>`).join('')}${dayWeight ? `<span class="tag" style="background: var(--accent-dim); border-color: var(--accent);">⚖ ${dayWeight.weight.toFixed(1)} kg</span>` : ''}</div>
         </div>`);
         cats.forEach(cat => {
           const block = el(`<div class="session-cat-block"><div class="session-cat-label">${cat}</div></div>`);
@@ -801,13 +887,12 @@ function renderViewSessions(){
         });
         if(s.comment){ card.appendChild(el(`<div class="session-comment">"${s.comment}"</div>`)); }
         card.querySelector('.edit-btn').onclick = () => startEditSession(s);
-        card.querySelector('.delete-btn').onclick = () => deleteSessionById(s.id, card);
+        card.querySelector('.delete-btn').onclick = () => deleteSessionById(s.id, card, () => render());
         dayGroup.appendChild(card);
       });
       content.appendChild(dayGroup);
     });
   } else {
-    // Expandable, date-grouped table
     const groups = {};
     sessions.forEach(s => { if(!groups[s.date]) groups[s.date] = []; groups[s.date].push(s); });
     const dates = Object.keys(groups).sort((a,b)=>b.localeCompare(a));
@@ -815,6 +900,7 @@ function renderViewSessions(){
 
     dates.forEach((date, di) => {
       const daySessions = groups[date];
+      const dayWeight = weights.find(w => w.date === date);
       const exCount = daySessions.reduce((sum, s) => sum + s.entries.length, 0);
       const allCats = [...new Set(daySessions.flatMap(s => s.entries.map(e=>e.category)))];
       const isOpen = state.openDates.has(date);
@@ -828,7 +914,7 @@ function renderViewSessions(){
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
-            <span class="acc-meta">${exCount} exercise${exCount===1?'':'s'}</span>
+            <span class="acc-meta">${exCount} exercise${exCount===1?'':'s'}${dayWeight ? ' · ⚖ ' + dayWeight.weight.toFixed(1) + ' kg' : ''}</span>
             <svg class="acc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </div>
         </div>
@@ -918,73 +1004,119 @@ function getProgressMetric(sessions, name){
 
 function renderProgress(){
   const sessions = loadSessions();
+  const weights = loadWeights();
   const names = getAllExerciseNames(sessions);
   const wrap = el(`<div>
     <div class="topbar"><button class="back-btn" id="backBtn">&larr; Back</button></div>
     <div class="screen">
       <div class="step-head">
         <div class="step-title">Progress</div>
-        <div class="step-desc">Weight trend for strength moves, distance trend for cardio.</div>
+        <div class="step-desc">Track your exercise and weight trends over time.</div>
+      </div>
+      <div class="progress-tabs">
+        <div class="progress-tab ${state.progressTab==='exercises'?'active':''}" id="exercisesTab">
+          <div class="progress-tab-label">Exercises</div>
+        </div>
+        <div class="progress-tab ${state.progressTab==='weight'?'active':''}" id="weightTab">
+          <div class="progress-tab-label">Weight</div>
+        </div>
       </div>
       <div id="progBody"></div>
     </div>
   </div>`);
   wrap.querySelector('#backBtn').onclick = () => go('home');
+  wrap.querySelector('#exercisesTab').onclick = () => { state.progressTab = 'exercises'; render(); };
+  wrap.querySelector('#weightTab').onclick = () => { state.progressTab = 'weight'; render(); };
+  
   const body = wrap.querySelector('#progBody');
 
-  if(names.length === 0){
-    body.appendChild(el(`<div class="empty-state">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"></polyline></svg>
-      <p>No exercises logged yet.<br>Log a session first to see progress here.</p>
-    </div>`));
-    return wrap;
-  }
+  if(state.progressTab === 'exercises'){
+    if(names.length === 0){
+      body.appendChild(el(`<div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"></polyline></svg>
+        <p>No exercises logged yet.<br>Log a session first to see progress here.</p>
+      </div>`));
+      return wrap;
+    }
 
-  if(!state.progressExercise || !names.includes(state.progressExercise)) state.progressExercise = names[0];
+    if(!state.progressExercise || !names.includes(state.progressExercise)) state.progressExercise = names[0];
 
-  const selectWrap = el(`<div class="select-wrap"><select id="exSelect"></select></div>`);
-  const select = selectWrap.querySelector('select');
-  names.forEach(n => {
-    const opt = document.createElement('option');
-    opt.value = n; opt.textContent = n;
-    if(n === state.progressExercise) opt.selected = true;
-    select.appendChild(opt);
-  });
-  select.onchange = () => { state.progressExercise = select.value; render(); };
-  body.appendChild(selectWrap);
-
-  // gather data points for selected exercise (weight for strength, distance for cardio)
-  const metricType = getProgressMetric(sessions, state.progressExercise);
-  const unit = metricType === "cardio" ? "km" : "kg";
-  const metricLabel = metricType === "cardio" ? "Distance" : "Weight";
-  const points = [];
-  sessions.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(s => {
-    s.entries.forEach(e => {
-      if(e.name !== state.progressExercise) return;
-      const val = metricType === "cardio" ? e.distance : e.weight;
-      if(val){ points.push({ date: s.date, value: parseFloat(val) }); }
+    const selectWrap = el(`<div class="select-wrap"><select id="exSelect"></select></div>`);
+    const select = selectWrap.querySelector('select');
+    names.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n; opt.textContent = n;
+      if(n === state.progressExercise) opt.selected = true;
+      select.appendChild(opt);
     });
-  });
+    select.onchange = () => { state.progressExercise = select.value; render(); };
+    body.appendChild(selectWrap);
 
-  const latest = points.length ? points[points.length-1].value : null;
-  const best = points.length ? Math.max(...points.map(p=>p.value)) : null;
+    const metricType = getProgressMetric(sessions, state.progressExercise);
+    const unit = metricType === "cardio" ? "km" : "kg";
+    const metricLabel = metricType === "cardio" ? "Distance" : "Weight";
+    const points = [];
+    sessions.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(s => {
+      s.entries.forEach(e => {
+        if(e.name !== state.progressExercise) return;
+        const val = metricType === "cardio" ? e.distance : e.weight;
+        if(val){ points.push({ date: s.date, value: parseFloat(val) }); }
+      });
+    });
 
-  const statsRow = el(`<div class="progress-stats">
-    <div class="p-stat"><div class="p-stat-num mono">${points.length}</div><div class="p-stat-label">Logged</div></div>
-    <div class="p-stat"><div class="p-stat-num mono">${latest !== null ? latest+' '+unit : '—'}</div><div class="p-stat-label">Latest</div></div>
-    <div class="p-stat"><div class="p-stat-num mono">${best !== null ? best+' '+unit : '—'}</div><div class="p-stat-label">Best (${metricLabel})</div></div>
-  </div>`);
-  body.appendChild(statsRow);
+    const latest = points.length ? points[points.length-1].value : null;
+    const best = points.length ? Math.max(...points.map(p=>p.value)) : null;
 
-  const chartCard = el(`<div class="chart-card"></div>`);
-  if(points.length < 2){
-    chartCard.appendChild(el(`<div class="empty-state" style="padding:36px 10px;">
-      <p>${points.length === 0 ? `No ${metricLabel.toLowerCase()} entries yet for this exercise.` : "Log one more session with this exercise to see a trend line."}</p>
-    </div>`));
+    const statsRow = el(`<div class="progress-stats">
+      <div class="p-stat"><div class="p-stat-num mono">${points.length}</div><div class="p-stat-label">Logged</div></div>
+      <div class="p-stat"><div class="p-stat-num mono">${latest !== null ? latest+' '+unit : '—'}</div><div class="p-stat-label">Latest</div></div>
+      <div class="p-stat"><div class="p-stat-num mono">${best !== null ? best+' '+unit : '—'}</div><div class="p-stat-label">Best (${metricLabel})</div></div>
+    </div>`);
+    body.appendChild(statsRow);
+
+    const chartCard = el(`<div class="chart-card"></div>`);
+    if(points.length < 2){
+      chartCard.appendChild(el(`<div class="empty-state" style="padding:36px 10px;">
+        <p>${points.length === 0 ? `No ${metricLabel.toLowerCase()} entries yet for this exercise.` : "Log one more session with this exercise to see a trend line."}</p>
+      </div>`));
+    } else {
+      chartCard.appendChild(buildLineChart(points));
+    }
+    body.appendChild(chartCard);
   } else {
-    chartCard.appendChild(buildLineChart(points));
+    // Weight tab
+    if(weights.length === 0){
+      body.appendChild(el(`<div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v12"></path><path d="M8 9h8"></path><path d="M8 15h8"></path></svg>
+        <p>No weight entries yet.<br>Log a session and add your weight to start tracking.</p>
+      </div>`));
+      return wrap;
+    }
+
+    const sortedWeights = weights.slice().sort((a,b) => a.date.localeCompare(b.date));
+    const latest = sortedWeights[sortedWeights.length-1].weight;
+    const initial = sortedWeights[0].weight;
+    const change = latest - initial;
+    const best = Math.max(...sortedWeights.map(w=>w.weight));
+    const lowest = Math.min(...sortedWeights.map(w=>w.weight));
+
+    const statsRow = el(`<div class="progress-stats">
+      <div class="p-stat"><div class="p-stat-num mono">${sortedWeights.length}</div><div class="p-stat-label">Logged</div></div>
+      <div class="p-stat"><div class="p-stat-num mono">${latest.toFixed(1)} kg</div><div class="p-stat-label">Current</div></div>
+      <div class="p-stat"><div class="p-stat-num mono" style="color: ${change > 0 ? 'var(--bad)' : 'var(--good)'}">${change > 0 ? '+' : ''}${change.toFixed(1)} kg</div><div class="p-stat-label">Change</div></div>
+    </div>`);
+    body.appendChild(statsRow);
+
+    const chartCard = el(`<div class="chart-card"></div>`);
+    if(sortedWeights.length < 2){
+      chartCard.appendChild(el(`<div class="empty-state" style="padding:36px 10px;">
+        <p>Log one more weight entry to see a trend line.</p>
+      </div>`));
+    } else {
+      chartCard.appendChild(buildLineChart(sortedWeights));
+    }
+    body.appendChild(chartCard);
   }
-  body.appendChild(chartCard);
 
   return wrap;
 }
